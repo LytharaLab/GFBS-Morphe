@@ -1,0 +1,9 @@
+{
+  "gfbs_morphe.screen.title": "Morphe 界面",
+  "gfbs_morphe.screen.hud_interaction": "Morphe HUD 交互",
+  "gfbs_morphe.error.load": "无法加载 Morphe 文档：%s",
+  "gfbs_morphe.command.opened": "已打开 Morphe 文档 %s",
+  "gfbs_morphe.command.reloaded": "已重载当前 Morphe 文档",
+  "gfbs_morphe.command.no_screen": "当前没有打开 Morphe 界面",
+  "gfbs_morphe.command.inspect": "Morphe 检查器：%s"
+}

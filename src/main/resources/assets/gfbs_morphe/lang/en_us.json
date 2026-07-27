@@ -1,0 +1,9 @@
+{
+  "gfbs_morphe.screen.title": "Morphe UI",
+  "gfbs_morphe.screen.hud_interaction": "Morphe HUD Interaction",
+  "gfbs_morphe.error.load": "Unable to load Morphe document: %s",
+  "gfbs_morphe.command.opened": "Opened Morphe document %s",
+  "gfbs_morphe.command.reloaded": "Reloaded current Morphe document",
+  "gfbs_morphe.command.no_screen": "No Morphe screen is open",
+  "gfbs_morphe.command.inspect": "Morphe inspector: %s"
+}
