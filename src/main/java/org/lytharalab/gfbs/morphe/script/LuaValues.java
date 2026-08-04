@@ -24,11 +24,11 @@ final class LuaValues {
         if (value.isboolean()) {
             return value.toboolean();
         }
-        if (value.isnumber()) {
-            return value.todouble();
-        }
         if (value.isstring()) {
             return value.tojstring();
+        }
+        if (value.isnumber()) {
+            return value.todouble();
         }
         if (value.isuserdata()) {
             return value.touserdata();
