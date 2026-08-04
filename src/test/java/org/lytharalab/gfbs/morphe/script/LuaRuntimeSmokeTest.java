@@ -114,6 +114,12 @@ public final class LuaRuntimeSmokeTest {
                     env.player.health = 0
                 end)
                 assert(writable == false)
+
+                local numeric_short = ui.text({text = "67"})
+                local numeric_long = ui.text({text = "67676767676767676767676767"})
+                assert(numeric_short.text == "67")
+                assert(numeric_long.text == "67676767676767676767676767")
+
                 ui.mount(ui.text({text = "sandbox ok"})
                     :effect("smoke:pulse", {speed = 2}))
                 """, "morphe_runtime_smoke");
