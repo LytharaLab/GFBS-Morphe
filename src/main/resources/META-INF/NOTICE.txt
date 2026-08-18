@@ -1,0 +1,34 @@
+GFBS-Morphe Third-Party Notice
+==============================
+
+GFBS-Morphe includes the following third-party software:
+
+LuaJ
+----
+Artifact:
+  org.luaj:luaj-jse:3.0.1
+
+Upstream project:
+  LuaJ
+
+License:
+  MIT License
+
+GFBS-Morphe bundles LuaJ as an internal shaded runtime.
+
+The original Java package namespace:
+
+  org.luaj.*
+
+is relocated at build time to:
+
+  org.lytharalab.gfbs.morphe.internal.luaj.*
+
+This relocation is performed solely to isolate the LuaJ runtime bundled with
+GFBS-Morphe from LuaJ copies provided by other Minecraft mods.
+
+The package relocation does not modify or replace the original LuaJ license.
+
+The full LuaJ license text is included at:
+
+  META-INF/licenses/LuaJ.txt
