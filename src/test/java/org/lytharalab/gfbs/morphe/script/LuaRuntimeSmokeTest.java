@@ -21,6 +21,7 @@ public final class LuaRuntimeSmokeTest {
     }
 
     public static void main(String[] args) {
+        WeakIdentityLuaTableMapTestSupport.run();
         Morphe.get().initialize();
         AtomicInteger effectAttach = new AtomicInteger();
         AtomicInteger effectFrames = new AtomicInteger();

@@ -69,7 +69,7 @@ public final class MorpheLuaRuntime implements UiRuntime {
     private final List<Scheduled> scheduled = new ArrayList<>();
     private final List<Scheduled> scheduledFrames = new ArrayList<>();
     private final List<ExternalVariableBinding> externalVariables = new ArrayList<>();
-    private final Map<LuaTable, LuaTable> readOnlyBackings = new IdentityHashMap<>();
+    private final Map<LuaTable, LuaTable> readOnlyBackings = new WeakIdentityLuaTableMap();
     private Map<String, ?> environmentSnapshot = Map.of();
     private boolean stateDirty = true;
     private boolean closed;
