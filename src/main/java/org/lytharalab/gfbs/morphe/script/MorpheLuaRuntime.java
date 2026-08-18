@@ -34,13 +34,13 @@ import org.slf4j.Logger;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.WeakHashMap;
 
 /**
  * Sandboxed LuaJ runtime. It intentionally omits package, io, os, debug and
@@ -69,7 +69,7 @@ public final class MorpheLuaRuntime implements UiRuntime {
     private final List<Scheduled> scheduled = new ArrayList<>();
     private final List<Scheduled> scheduledFrames = new ArrayList<>();
     private final List<ExternalVariableBinding> externalVariables = new ArrayList<>();
-    private final Map<LuaTable, LuaTable> readOnlyBackings = new IdentityHashMap<>();
+    private final Map<LuaTable, LuaTable> readOnlyBackings = new WeakHashMap<>();
     private Map<String, ?> environmentSnapshot = Map.of();
     private boolean stateDirty = true;
     private boolean closed;
