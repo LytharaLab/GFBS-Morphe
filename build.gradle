@@ -2,6 +2,7 @@ plugins {
     id 'eclipse'
     id 'idea'
     id 'net.minecraftforge.gradle' version '6.0.29'
+    id 'com.gradleup.shadow' version '8.3.11'
 }
 
 group = mod_group_id
@@ -14,8 +15,6 @@ base {
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(17)
 }
-
-jarJar.enable()
 
 minecraft {
     mappings channel: mapping_channel, version: mapping_version
@@ -64,11 +63,18 @@ repositories {
     mavenCentral()
 }
 
+// LuaJ is intentionally kept as a dedicated shading input. The development
+// runtime still sees the original coordinates, while the distributable JAR
+// receives a private, relocated copy so other mods cannot supply Morphe's LuaJ.
+configurations {
+    morpheLua
+}
+
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
 
     minecraftLibrary 'org.luaj:luaj-jse:3.0.1'
-    jarJar(group: 'org.luaj', name: 'luaj-jse', version: '[3.0.1,3.1.0)')
+    morpheLua 'org.luaj:luaj-jse:3.0.1'
 }
 
 tasks.named('processResources', ProcessResources).configure {
@@ -92,19 +98,109 @@ tasks.named('processResources', ProcessResources).configure {
     }
 }
 
-tasks.named('jar', Jar).configure {
+tasks.withType(Jar).configureEach {
     manifest {
         attributes([
             'Specification-Title': mod_id,
             'Specification-Vendor': mod_authors,
             'Specification-Version': '1',
             'Implementation-Title': project.name,
-            'Implementation-Version': project.jar.archiveVersion,
+            'Implementation-Version': project.version,
             'Implementation-Vendor': mod_authors,
             'Implementation-Timestamp': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
         ])
     }
+}
+
+// Keep the ordinary ForgeGradle JAR visibly marked as unbundled. It exists as
+// an intermediate/development artifact only; the no-classifier Shadow JAR is
+// the canonical distributable Morphe artifact.
+tasks.named('jar', Jar).configure {
+    archiveClassifier = 'unbundled'
     finalizedBy 'reobfJar'
+}
+
+tasks.named('shadowJar').configure {
+    configurations = [project.configurations.morpheLua]
+    archiveClassifier = ''
+
+    // Private Morphe LuaJ namespace. This is the actual classloader-conflict fix:
+    // Axiom keeps org.luaj.*, Morphe ships org.lytharalab.gfbs.morphe.internal.luaj.*.
+    relocate 'org.luaj', 'org.lytharalab.gfbs.morphe.internal.luaj'
+
+    // Dependency signatures are invalid after shading and must not leak into
+    // the resulting mod JAR.
+    exclude 'META-INF/*.SF'
+    exclude 'META-INF/*.DSA'
+    exclude 'META-INF/*.RSA'
+}
+
+// Forge 1.20.1 production mappings must be applied to the shaded artifact too.
+reobf {
+    shadowJar {}
+}
+
+tasks.named('shadowJar').configure {
+    finalizedBy 'reobfShadowJar'
+}
+
+// Fail the build if a future dependency/configuration regression accidentally
+// reintroduces the public org.luaj namespace or leaves stale bytecode references.
+tasks.register('verifyLuaIsolation') {
+    group = 'verification'
+    description = 'Verifies that the distributable Morphe JAR contains only the relocated private LuaJ runtime.'
+    dependsOn 'reobfShadowJar'
+
+    doLast {
+        def artifact = tasks.named('shadowJar').get().archiveFile.get().asFile
+        if (!artifact.isFile()) {
+            throw new GradleException("Shadow JAR was not produced: ${artifact}")
+        }
+
+        def zip = new java.util.zip.ZipFile(artifact)
+        try {
+            def leakedEntries = []
+            def staleReferences = []
+            def hasRelocatedLuaValue = false
+
+            zip.entries().each { entry ->
+                if (entry.name.startsWith('org/luaj/')) {
+                    leakedEntries << entry.name
+                }
+
+                if (entry.name == 'org/lytharalab/gfbs/morphe/internal/luaj/vm2/LuaValue.class') {
+                    hasRelocatedLuaValue = true
+                }
+
+                if (!entry.directory && entry.name.endsWith('.class')) {
+                    def raw = new String(zip.getInputStream(entry).bytes, 'ISO-8859-1')
+                    if (raw.contains('org/luaj/') || raw.contains('org.luaj.')) {
+                        staleReferences << entry.name
+                    }
+                }
+            }
+
+            if (!leakedEntries.isEmpty()) {
+                throw new GradleException("LuaJ isolation failed: public org/luaj classes leaked into ${artifact.name}: ${leakedEntries.take(10)}")
+            }
+
+            if (!staleReferences.isEmpty()) {
+                throw new GradleException("LuaJ isolation failed: stale org.luaj references remain in ${artifact.name}: ${staleReferences.take(10)}")
+            }
+
+            if (!hasRelocatedLuaValue) {
+                throw new GradleException("LuaJ isolation failed: relocated LuaValue.class is missing from ${artifact.name}")
+            }
+
+            logger.lifecycle("Morphe LuaJ isolation verified: ${artifact.name}")
+        } finally {
+            zip.close()
+        }
+    }
+}
+
+tasks.named('build').configure {
+    dependsOn 'verifyLuaIsolation'
 }
 
 tasks.withType(JavaCompile).configureEach {
