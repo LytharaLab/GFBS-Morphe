@@ -13,13 +13,13 @@ GFBS: Morphe lets resource packs and mods define interfaces with sandboxed Lua s
 
 ## Status and compatibility
 
-| Component | Version |
-| --- | --- |
-| GFBS: Morphe | `1.0.0` |
-| Script API | `1` |
-| Minecraft | `1.20.1` |
-| Minecraft Forge | `47.4.16` |
-| Java | `17` |
+| Component | Version      |
+| --- |--------------|
+| GFBS: Morphe | `1.0.1`      |
+| Script API | `1`          |
+| Minecraft | `1.20.1`     |
+| Minecraft Forge | `47.4.16`    |
+| Java | `17`         |
 | Lua runtime | LuaJ `3.0.1` |
 
 ## Features
