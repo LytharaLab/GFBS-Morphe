@@ -49,8 +49,8 @@ minecraft {
         data {
             workingDirectory project.file('run-data')
             args '--mod', mod_id, '--all',
-                '--output', file('src/generated/resources/'),
-                '--existing', file('src/main/resources/')
+                    '--output', file('src/generated/resources/'),
+                    '--existing', file('src/main/resources/')
         }
     }
 }
@@ -79,17 +79,17 @@ dependencies {
 
 tasks.named('processResources', ProcessResources).configure {
     def replaceProperties = [
-        minecraft_version: minecraft_version,
-        minecraft_version_range: minecraft_version_range,
-        forge_version: forge_version,
-        forge_version_range: forge_version_range,
-        loader_version_range: loader_version_range,
-        mod_id: mod_id,
-        mod_name: mod_name,
-        mod_license: mod_license,
-        mod_version: mod_version,
-        mod_authors: mod_authors,
-        mod_description: mod_description
+            minecraft_version: minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            forge_version: forge_version,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id,
+            mod_name: mod_name,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+            mod_description: mod_description
     ]
 
     inputs.properties replaceProperties
@@ -101,13 +101,13 @@ tasks.named('processResources', ProcessResources).configure {
 tasks.withType(Jar).configureEach {
     manifest {
         attributes([
-            'Specification-Title': mod_id,
-            'Specification-Vendor': mod_authors,
-            'Specification-Version': '1',
-            'Implementation-Title': project.name,
-            'Implementation-Version': project.version,
-            'Implementation-Vendor': mod_authors,
-            'Implementation-Timestamp': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+                'Specification-Title': mod_id,
+                'Specification-Vendor': mod_authors,
+                'Specification-Version': '1',
+                'Implementation-Title': project.name,
+                'Implementation-Version': project.version,
+                'Implementation-Vendor': mod_authors,
+                'Implementation-Timestamp': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
         ])
     }
 }
@@ -124,9 +124,25 @@ tasks.named('shadowJar').configure {
     configurations = [project.configurations.morpheLua]
     archiveClassifier = ''
 
-    // Private Morphe LuaJ namespace. This is the actual classloader-conflict fix:
-    // Axiom keeps org.luaj.*, Morphe ships org.lytharalab.gfbs.morphe.internal.luaj.*.
+    // Private Morphe LuaJ namespace. Axiom/Figura and other mods may keep their
+    // own org.luaj.* copy; Morphe's embedded runtime must never expose it.
     relocate 'org.luaj', 'org.lytharalab.gfbs.morphe.internal.luaj'
+
+    // LuaJ publishes a javax.script provider through META-INF/services. Morphe
+    // does not use LuaJ through ServiceLoader, so keeping this descriptor is both
+    // unnecessary and dangerous under SecureJarHandler: the stale provider name
+    // makes org.luaj.vm2.script part of gfbs_morphe's automatic-module package
+    // set and collides with Figura/Axiom LuaJ modules.
+    exclude 'META-INF/services/javax.script.ScriptEngineFactory'
+
+    // luaj-jse also ships command-line launchers in the unnamed/default package.
+    // They are useless inside a Forge mod and prevent a clean module descriptor.
+    exclude 'lua.class'
+    exclude 'luac.class'
+    exclude 'luajc.class'
+    exclude 'luajc$1.class'
+    exclude 'luajc$InputFile.class'
+    exclude 'luajc$LocalClassLoader.class'
 
     // Dependency signatures are invalid after shading and must not leak into
     // the resulting mod JAR.
@@ -160,10 +176,16 @@ tasks.register('verifyLuaIsolation') {
         def zip = new java.util.zip.ZipFile(artifact)
         try {
             def leakedEntries = []
-            def staleReferences = []
+            def staleBytecodeReferences = []
+            def staleServiceReferences = []
+            def defaultPackageClasses = []
             def hasRelocatedLuaValue = false
 
             zip.entries().each { entry ->
+                if (entry.directory) {
+                    return
+                }
+
                 if (entry.name.startsWith('org/luaj/')) {
                     leakedEntries << entry.name
                 }
@@ -172,24 +194,61 @@ tasks.register('verifyLuaIsolation') {
                     hasRelocatedLuaValue = true
                 }
 
-                if (!entry.directory && entry.name.endsWith('.class')) {
+                // A Forge mod JAR must not inherit LuaJ's unnamed-package CLI
+                // launchers. Catch them generically so a future LuaJ release
+                // cannot silently add another root-level class.
+                if (entry.name.endsWith('.class') && !entry.name.contains('/')) {
+                    defaultPackageClasses << entry.name
+                }
+
+                if (entry.name.endsWith('.class')) {
                     def raw = new String(zip.getInputStream(entry).bytes, 'ISO-8859-1')
                     if (raw.contains('org/luaj/') || raw.contains('org.luaj.')) {
-                        staleReferences << entry.name
+                        staleBytecodeReferences << entry.name
+                    }
+                }
+
+                // SecureJarHandler consumes META-INF/services while deriving the
+                // module descriptor. A stale provider name here recreates the
+                // public org.luaj.vm2.script package even when all classes were
+                // successfully relocated, which is exactly the Figura collision
+                // this verification is meant to prevent.
+                if (entry.name.startsWith('META-INF/services/')) {
+                    def serviceText = new String(zip.getInputStream(entry).bytes, 'UTF-8')
+                    if (serviceText.contains('org.luaj.') || serviceText.contains('org/luaj/')) {
+                        staleServiceReferences << entry.name
                     }
                 }
             }
 
             if (!leakedEntries.isEmpty()) {
-                throw new GradleException("LuaJ isolation failed: public org/luaj classes leaked into ${artifact.name}: ${leakedEntries.take(10)}")
+                throw new GradleException(
+                        "LuaJ isolation failed: public org/luaj classes leaked into ${artifact.name}: ${leakedEntries.take(10)}"
+                )
             }
 
-            if (!staleReferences.isEmpty()) {
-                throw new GradleException("LuaJ isolation failed: stale org.luaj references remain in ${artifact.name}: ${staleReferences.take(10)}")
+            if (!staleBytecodeReferences.isEmpty()) {
+                throw new GradleException(
+                        "LuaJ isolation failed: stale org.luaj bytecode references remain in ${artifact.name}: ${staleBytecodeReferences.take(10)}"
+                )
+            }
+
+            if (!staleServiceReferences.isEmpty()) {
+                throw new GradleException(
+                        "LuaJ isolation failed: stale org.luaj service-provider metadata remains in ${artifact.name}: ${staleServiceReferences.take(10)}"
+                )
+            }
+
+            if (!defaultPackageClasses.isEmpty()) {
+                throw new GradleException(
+                        "LuaJ isolation failed: default-package classes leaked into ${artifact.name}: ${defaultPackageClasses.take(10)}"
+                )
             }
 
             if (!hasRelocatedLuaValue) {
-                throw new GradleException("LuaJ isolation failed: relocated LuaValue.class is missing from ${artifact.name}")
+                throw new GradleException(
+                        "LuaJ isolation failed: relocated LuaValue.class is missing from ${artifact.name}"
+                )
             }
 
             logger.lifecycle("Morphe LuaJ isolation verified: ${artifact.name}")
