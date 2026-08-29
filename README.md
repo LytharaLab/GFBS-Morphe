@@ -5,8 +5,8 @@ A safe, extensible, and script-driven UI runtime for Minecraft Forge 1.20.1.
 GFBS: Morphe lets resource packs and mods define interfaces with sandboxed Lua scripts while Java handles registration, rendering integration, networking, and server-authoritative actions. It supports full screens, transparent screens, passive HUDs, and interactive overlay HUDs without requiring a dedicated Minecraft `Screen` class for every interface.
 
 ---
-### Team maintaining this project: [GFBS Mod Series Maintainers](https://github.com/orgs/LytharaLab/teams/gfbs-mod-series-maintainers)
-### 维护此项目的团队: [GFBS Mod Series Maintainers](https://github.com/orgs/LytharaLab/teams/gfbs-mod-series-maintainers)
+#### Team maintaining this project: [GFBS Mod Series Maintainers](https://github.com/orgs/LytharaLab/teams/gfbs-mod-series-maintainers)
+#### 维护此项目的团队: [GFBS Mod Series Maintainers](https://github.com/orgs/LytharaLab/teams/gfbs-mod-series-maintainers)
 ---
 
 ## Repository
